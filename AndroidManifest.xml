@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" />
+    <uses-permission android:name="android.permission.READ_PROFILE"/>
+	<uses-permission android:name="android.permission.READ_CONTACTS"/>
     
     <application
         android:allowBackup="true"
@@ -29,10 +31,16 @@
         </activity>
         <activity
             android:name="com.pureexe.calinoius.physic.environment.activity.EnvironmentCameraActivity"
+			android:theme="@style/AppThemeCamera"
             android:label="@string/app_name" >
         </activity>
          <activity
-            android:name="com.pureexe.calinoius.physic.environment.activity.EXIFgetSharedActivity"
+            android:name="com.pureexe.calinoius.physic.environment.activity.FragmentDisplayActivity"            
+            android:label="@string/app_name" >
+        </activity>
+        
+         <activity
+            android:name="com.pureexe.calinoius.physic.environment.activity.EXIFreadActivity"
             android:label="@string/app_name_exif">
              <intent-filter>
          <action android:name="android.intent.action.SEND" />

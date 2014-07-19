@@ -9,22 +9,36 @@ import java.util.Date;
 import java.util.List;
 
 import android.app.Fragment;
+import android.content.BroadcastReceiver;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.AudioManager;
 import android.media.ExifInterface;
+import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -32,7 +46,8 @@ import android.widget.Toast;
 
 import com.pureexe.calinoius.physic.environment.R;
 import com.pureexe.calinoius.physic.environment.utility.CameraPreview;
-import com.pureexe.calinoius.physic.environment.utility.EnvironmentSensorJSON;
+import com.pureexe.calinoius.physic.environment.utility.DataManager;
+import com.pureexe.calinoius.physic.environment.utility.EnvSensorJSON;
 
 public class EnvironmentCameraFragment extends Fragment implements SensorEventListener {
 	public EnvironmentCameraFragment() {
@@ -49,6 +64,7 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 	private Sensor sensorTempurature;
 	private Sensor sensorHumidity;
 	private boolean hasAcceleration;
+	
 	private boolean hasGravity;
 	private boolean hasGyroscope;
 	private boolean hasMagneticField;
@@ -58,6 +74,7 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 	private boolean hasTempurature;
 	private boolean hasHumidity;
 	
+	
 	private float[] Acceleration;
 	private float[] Gravity;
 	private float[] Gyroscope;
@@ -66,6 +83,7 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 	private float[] Light;
 	private float[] Pressure;
 	private float[] Tempurature;
+	private float 	BatteryTempurature;
 	private float[] Humidity;
 	
 	
@@ -74,8 +92,10 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 	private FrameLayout cameraFramePreview;
 	private Camera mCamera;
 	private PictureCallback jpgePictureCallback;
+	protected long currentTime;
 	
-
+	private DataManager dataManager;
+	
 	public static final int MEDIA_TYPE_IMAGE = 1;
 	public static final int MEDIA_TYPE_VIDEO = 2;
 
@@ -105,7 +125,27 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 	    }
 	    return mediaFile;
 	}
+	private BroadcastReceiver mBatInfoReceiver = new BroadcastReceiver(){
+		@Override
+		public void onReceive(Context context, Intent intent) {
+		      BatteryTempurature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)/10.0f;
+		}
+	  };
 	
+	  public void shootSound()
+	  {
+	      AudioManager meng = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
+	      int volume = meng.getStreamVolume( AudioManager.STREAM_NOTIFICATION);
+
+	      if (volume != 0)
+	      {
+	    	  MediaPlayer _shootMP = null;
+			if (_shootMP == null)
+	              _shootMP = MediaPlayer.create(getActivity(), Uri.parse("file:///system/media/audio/ui/camera_click.ogg"));
+	          if (_shootMP != null)
+	              _shootMP.start();
+	      }
+	  }
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		sensorManager = (SensorManager) getActivity().getSystemService(getActivity().SENSOR_SERVICE);
@@ -119,32 +159,37 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 		sensorTempurature = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
 		sensorHumidity = sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
 	
-		
+		dataManager = new DataManager(getActivity());
 		
 		jpgePictureCallback = new PictureCallback() {
 		    @Override
 		    public void onPictureTaken(byte[] data, Camera camera) {
+		    	shootSound();
+		    	
 		       File pictureFile = (File)getOutputMediaFile(MEDIA_TYPE_IMAGE);
 		        if (pictureFile == null){
 		         	Toast.makeText(getActivity(), "NULL Eject", Toast.LENGTH_LONG).show();
 		        	return;
 		        }
+		        
 		        try {
 		            FileOutputStream fos = new FileOutputStream(pictureFile);
 		            fos.write(data);
 		            fos.close();
 		            addImageGallery(pictureFile);
-		            EnvironmentSensorJSON envJson = new EnvironmentSensorJSON();
+		            EnvSensorJSON envJson = new EnvSensorJSON();
 		            ExifInterface exif = new ExifInterface(pictureFile.toString());
 		            envJson.setSoftware();
 		            envJson.setSoftwareVersion();
-		            envJson.setResearcher("Pakkapon Phongthawee");
+		            envJson.setResearcher("Pakkapon Phongthawee, Mr.");
 		            if(hasAcceleration)
 		            	envJson.setAcceleration(Acceleration);
 		            if(hasGravity)
 		            	envJson.setGravity(Gravity);
 		            if(hasGyroscope)
 		            	envJson.setGyroscope(Gyroscope);
+		            if(hasMagneticField)
+		            	envJson.setMagneticField(MagneticField);
 		            if(hasOrientation)
 		            	envJson.setOrientation(Orientation);
 		            if(hasHumidity)
@@ -153,8 +198,13 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 		            	envJson.setLight(Light);
 		            if(hasLight)
 		            	envJson.setPressure(Pressure);
-		            if(hasTempurature)
+		            if(hasTempurature){
 		            	envJson.setTempurature(Tempurature);
+		            }else {
+		            	float[] setTempuratureC=new float[1];
+		            	setTempuratureC[0]=BatteryTempurature;
+		            	envJson.setTempurature(setTempuratureC);
+		            }
 		            exif.setAttribute("UserComment", envJson.getJSON().toString());
 		            exif.saveAttributes();
 		            
@@ -176,6 +226,7 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 	}
 	@Override
 	public void onPause() {
+		getActivity().unregisterReceiver(this.mBatInfoReceiver);
 		sensorManager.unregisterListener(this);
 		cameraFramePreview.removeAllViews();
 		mCamera.stopPreview();
@@ -186,6 +237,7 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 
 	@Override
 	public void onResume() {
+		getActivity().registerReceiver(this.mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 		hasAcceleration = sensorManager.registerListener(this, sensorAcceleration,SensorManager.SENSOR_DELAY_NORMAL);
 		hasGravity = sensorManager.registerListener(this, sensorGravity,SensorManager.SENSOR_DELAY_NORMAL);
 		hasGyroscope = sensorManager.registerListener(this, sensorGyroscope,SensorManager.SENSOR_DELAY_NORMAL);
@@ -206,20 +258,42 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 	     List<Camera.Size> picture_size= camParam.getSupportedPictureSizes();    
 	 
 	     camParam.setPictureSize(picture_size.get(0).width, picture_size.get(0).height);
+	     camParam.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
 	     mCamera.setParameters(camParam);
 	     mPreview = new CameraPreview(getActivity(), mCamera);
 	     cameraFramePreview.addView(mPreview);
+	     if(dataManager.getSettingBoolean(SettingPreferenceFragment.AIM_POINT)){
+	    	 getView().findViewById(R.id.aim_point).setVisibility(View.VISIBLE);
+	     } else {
+	    	 getView().findViewById(R.id.aim_point).setVisibility(View.GONE);
+	     }
 		super.onResume();
 	}
 	
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
+		View decorView = getActivity().getWindow().getDecorView();
+		decorView.setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
+			public void onSystemUiVisibilityChange(int visibility) {
+				if(visibility == View.SYSTEM_UI_FLAG_VISIBLE) {
+					currentTime = System.currentTimeMillis();
+				}
+			}
+		});
 		View rootView = inflater.inflate(R.layout.fragment_environmentcamera, container,
 				false);
 		getActivity().setRequestedOrientation(0);
-		displayTxt = (TextView) rootView.findViewById(R.id.environmentdata);
 		cameraFramePreview = (FrameLayout) rootView.findViewById(R.id.camera_preview);
+		cameraFramePreview.setOnTouchListener(new View.OnTouchListener() {
+			@Override
+			public boolean onTouch(View v, MotionEvent event) {
+				mCamera.autoFocus(null);
+				return false;
+			}
+		});
+		
+		
 		ImageView shutter = (ImageView) rootView.findViewById(R.id.imageView1);
 		shutter.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -228,6 +302,8 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 				mCamera.autoFocus(null);
 			}
 		});
+		
+		
 		
 		return rootView;
 	}
@@ -254,7 +330,6 @@ public class EnvironmentCameraFragment extends Fragment implements SensorEventLi
 		}
 		if(event.sensor.getType() == Sensor.TYPE_ORIENTATION){
 			Orientation = event.values;
-			displayTxt.setText(""+Orientation[2]);
 		}
 		if(event.sensor.getType() == Sensor.TYPE_PRESSURE){
 			Pressure = event.values;

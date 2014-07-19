@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+        <PreferenceCategory android:title="@string/camera">
+        <CheckBoxPreference
+        android:key="aim_point"
+        android:title="@string/aim_point"
+        android:summary="@string/aim_point_des"
+        />
+        </PreferenceCategory>
+</PreferenceScreen>

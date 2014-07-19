@@ -16,22 +16,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.os.Build;
 
-
-
-
 public class MainActivity extends Activity {
 
 	private CharSequence mTitle;
+	
 	
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-
-       // mNavigationDrawerFragment = (NavigationDrawerFragment) getFragmentManager().findFragmentById(R.id.navigation_drawer);
-    //    mTitle = getTitle();
-    //    mNavigationDrawerFragment.setUp( R.id.navigation_drawer,(DrawerLayout) findViewById(R.id.drawer_layout));
         
 		
 		if (savedInstanceState == null) {
@@ -39,5 +33,4 @@ public class MainActivity extends Activity {
 					.add(R.id.container, new MainFragment()).commit();
 		}
 	}
-
 }
